@@ -15,7 +15,7 @@ pub struct Config {
 
 struct LockstepTimer(pub Timer);
 
-#[derive(Default, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct Tick(pub u64);
 
 #[derive(Default)]
