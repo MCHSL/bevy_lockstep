@@ -7,8 +7,6 @@ pub const LOCKSTEP: &'static str = "lockstep";
 pub const LOCKSTEP_START: &'static str = "lockstep_start";
 pub const LOCKSTEP_END: &'static str = "lockstep_end";
 
-pub type PlayerID = usize;
-
 pub struct Config {
     pub num_players: usize,
     pub ticks_per_second: usize,
@@ -21,17 +19,17 @@ struct LockstepTimer(pub Timer);
 pub struct Tick(pub u64);
 
 #[derive(Default)]
-pub struct Step<I: Default> {
+pub struct Step<PlayerID: Default, I: Default> {
     inputs: HashMap<PlayerID, Vec<I>>,
 }
 
 #[derive(Default)]
-pub struct CurrentInputs<I: Default>(pub HashMap<PlayerID, Vec<I>>);
+pub struct CurrentInputs<PlayerID: Default, I: Default>(pub HashMap<PlayerID, Vec<I>>);
 
 #[derive(Default)]
-pub struct InputQueue<I: Default>(HashMap<Tick, Step<I>>);
+pub struct InputQueue<PlayerID: Default, I: Default>(HashMap<Tick, Step<PlayerID, I>>);
 
-impl<I: Default> InputQueue<I> {
+impl<PlayerID: Default + Eq + std::hash::Hash, I: Default> InputQueue<PlayerID, I> {
     pub fn insert(&mut self, tick: Tick, player: PlayerID, command: I) {
         self.0
             .entry(tick)
@@ -43,9 +41,9 @@ impl<I: Default> InputQueue<I> {
     }
 }
 
-fn can_step<I: 'static + Send + Sync + Default>(
+fn can_step<PlayerID: 'static + Send + Sync + Default, I: 'static + Send + Sync + Default>(
     current_tick: Res<Tick>,
-    inputs: Res<InputQueue<I>>,
+    inputs: Res<InputQueue<PlayerID, I>>,
     time: Res<Time>,
     mut timer: ResMut<LockstepTimer>,
     config: Res<Config>,
@@ -58,7 +56,7 @@ fn can_step<I: 'static + Send + Sync + Default>(
         return ShouldRun::No;
     }
 
-    let entry = inputs.0.get(&*current_tick);
+    let entry = (*inputs).0.get(&*current_tick);
     if let Some(q) = entry {
         if q.inputs.len() == config.num_players {
             ShouldRun::Yes
@@ -70,17 +68,23 @@ fn can_step<I: 'static + Send + Sync + Default>(
     }
 }
 
-fn prepare_inputs<I: 'static + Send + Sync + Default + Clone>(
+fn prepare_inputs<
+    PlayerID: 'static + Send + Sync + Default + Clone,
+    I: 'static + Send + Sync + Default + Clone,
+>(
     current_tick: ResMut<Tick>,
-    inputs: ResMut<InputQueue<I>>,
-    mut current_inputs: ResMut<CurrentInputs<I>>,
+    inputs: ResMut<InputQueue<PlayerID, I>>,
+    mut current_inputs: ResMut<CurrentInputs<PlayerID, I>>,
 ) {
     *current_inputs = CurrentInputs(inputs.0.get(&*current_tick).unwrap().inputs.clone());
 }
 
-fn finish_step<I: 'static + Send + Sync + Default + Clone + std::fmt::Debug>(
+fn finish_step<
+    PlayerID: 'static + Send + Sync + Default + std::fmt::Debug,
+    I: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
+>(
     mut current_tick: ResMut<Tick>,
-    mut inputs: ResMut<InputQueue<I>>,
+    mut inputs: ResMut<InputQueue<PlayerID, I>>,
 ) {
     println!(
         "Tick {}: {:?}",
@@ -91,13 +95,13 @@ fn finish_step<I: 'static + Send + Sync + Default + Clone + std::fmt::Debug>(
     current_tick.0 += 1;
 }
 
-pub struct LockstepPlugin<PlayerActions: 'static + Send + Sync + Default + Clone>(
-    pub PhantomData<PlayerActions>,
+pub struct LockstepPlugin<PlayerActions: 'static + Send + Sync + Default + Clone, PlayerID>(
+    pub PhantomData<(PlayerActions, PlayerID)>,
 );
 
-impl<T: 'static + Send + Sync + Default + Clone> Default for LockstepPlugin<T> {
+impl<T: 'static + Send + Sync + Default + Clone, PlayerID> Default for LockstepPlugin<T, PlayerID> {
     fn default() -> Self {
-        LockstepPlugin(PhantomData::<T>)
+        LockstepPlugin(PhantomData::<(T, PlayerID)>)
     }
 }
 
@@ -108,23 +112,29 @@ fn insert_timer(mut commands: Commands, config: Res<Config>) {
     )))
 }
 
-impl<PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug> Plugin
-    for LockstepPlugin<PlayerActions>
+impl<
+        PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
+        PlayerID: 'static + Send + Sync + Default + Clone + Eq + std::hash::Hash + std::fmt::Debug,
+    > Plugin for LockstepPlugin<PlayerActions, PlayerID>
 {
     fn build(&self, app: &mut AppBuilder) {
         app.insert_resource(Tick::default())
-            .insert_resource(InputQueue::<PlayerActions>::default())
-            .insert_resource(CurrentInputs::<PlayerActions>::default())
+            .insert_resource(InputQueue::<PlayerID, PlayerActions>::default())
+            .insert_resource(CurrentInputs::<PlayerID, PlayerActions>::default())
             .add_startup_system(insert_timer.system())
             .add_system_set(
                 SystemSet::new()
-                    .with_run_criteria(can_step::<PlayerActions>.system().label(LOCKSTEP))
+                    .with_run_criteria(can_step::<PlayerID, PlayerActions>.system().label(LOCKSTEP))
                     .with_system(
-                        prepare_inputs::<PlayerActions>
+                        prepare_inputs::<PlayerID, PlayerActions>
                             .system()
                             .label(LOCKSTEP_START),
                     )
-                    .with_system(finish_step::<PlayerActions>.system().label(LOCKSTEP_END)),
+                    .with_system(
+                        finish_step::<PlayerID, PlayerActions>
+                            .system()
+                            .label(LOCKSTEP_END),
+                    ),
             );
     }
 }
@@ -140,7 +150,7 @@ fn main() {
             ticks_per_second: 5,
             paused: false,
         })
-        .add_plugin(LockstepPlugin::<PlayerActions>::default())
+        .add_plugin(LockstepPlugin::<usize, PlayerActions>::default())
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(LOCKSTEP)
