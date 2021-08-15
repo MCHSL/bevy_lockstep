@@ -9,9 +9,13 @@ pub const LOCKSTEP_END: &'static str = "lockstep_end";
 
 pub type PlayerID = usize;
 
-pub struct NumPlayers(pub usize);
+pub struct Config {
+    pub num_players: usize,
+    pub ticks_per_second: usize,
+    pub paused: bool,
+}
 
-pub struct LockstepTimer(pub Timer);
+struct LockstepTimer(pub Timer);
 
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Tick(pub u64);
@@ -39,20 +43,24 @@ impl<I: Default> InputQueue<I> {
     }
 }
 
-pub fn can_step<I: 'static + Send + Sync + Default>(
+fn can_step<I: 'static + Send + Sync + Default>(
     current_tick: Res<Tick>,
     inputs: Res<InputQueue<I>>,
     time: Res<Time>,
     mut timer: ResMut<LockstepTimer>,
-    num_players: Res<NumPlayers>,
+    config: Res<Config>,
 ) -> ShouldRun {
+    if config.paused {
+        return ShouldRun::No;
+    }
+
     if !timer.0.tick(time.delta()).just_finished() {
         return ShouldRun::No;
     }
 
     let entry = inputs.0.get(&*current_tick);
     if let Some(q) = entry {
-        if q.inputs.len() == num_players.0 {
+        if q.inputs.len() == config.num_players {
             ShouldRun::Yes
         } else {
             ShouldRun::No
@@ -93,6 +101,13 @@ impl<T: 'static + Send + Sync + Default + Clone> Default for LockstepPlugin<T> {
     }
 }
 
+fn insert_timer(mut commands: Commands, config: Res<Config>) {
+    commands.insert_resource(LockstepTimer(Timer::from_seconds(
+        1.0 / config.ticks_per_second as f32,
+        true,
+    )))
+}
+
 impl<PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug> Plugin
     for LockstepPlugin<PlayerActions>
 {
@@ -100,6 +115,7 @@ impl<PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug> P
         app.insert_resource(Tick::default())
             .insert_resource(InputQueue::<PlayerActions>::default())
             .insert_resource(CurrentInputs::<PlayerActions>::default())
+            .add_startup_system(insert_timer.system())
             .add_system_set(
                 SystemSet::new()
                     .with_run_criteria(can_step::<PlayerActions>.system().label(LOCKSTEP))
@@ -112,3 +128,26 @@ impl<PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug> P
             );
     }
 }
+
+//EXAMPLE
+
+/*
+fn main() {
+    App::build()
+        .add_plugins(DefaultPlugins)
+        .insert_resource(lockstep::Config {
+            num_players: 2,
+            ticks_per_second: 5,
+            paused: false,
+        })
+        .add_plugin(LockstepPlugin::<PlayerActions>::default())
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(LOCKSTEP)
+                .after(LOCKSTEP_START)
+                .before(LOCKSTEP_END)
+                .with_system(do_thing_in_lockstep.system()),
+        )
+        .run();
+}
+*/
