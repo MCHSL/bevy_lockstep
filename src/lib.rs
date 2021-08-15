@@ -95,13 +95,13 @@ fn finish_step<
     current_tick.0 += 1;
 }
 
-pub struct LockstepPlugin<PlayerActions: 'static + Send + Sync + Default + Clone, PlayerID>(
-    pub PhantomData<(PlayerActions, PlayerID)>,
+pub struct LockstepPlugin<PlayerID, PlayerActions: 'static + Send + Sync + Default + Clone>(
+    pub PhantomData<(PlayerID, PlayerActions)>,
 );
 
-impl<T: 'static + Send + Sync + Default + Clone, PlayerID> Default for LockstepPlugin<T, PlayerID> {
+impl<PlayerID, T: 'static + Send + Sync + Default + Clone> Default for LockstepPlugin<PlayerID, T> {
     fn default() -> Self {
-        LockstepPlugin(PhantomData::<(T, PlayerID)>)
+        LockstepPlugin(PhantomData::<(PlayerID, T)>)
     }
 }
 
@@ -113,9 +113,9 @@ fn insert_timer(mut commands: Commands, config: Res<Config>) {
 }
 
 impl<
-        PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
         PlayerID: 'static + Send + Sync + Default + Clone + Eq + std::hash::Hash + std::fmt::Debug,
-    > Plugin for LockstepPlugin<PlayerActions, PlayerID>
+        PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
+    > Plugin for LockstepPlugin<PlayerID, PlayerActions>
 {
     fn build(&self, app: &mut AppBuilder) {
         app.insert_resource(Tick::default())
