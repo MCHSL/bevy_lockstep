@@ -1,5 +1,6 @@
 use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
@@ -15,7 +16,7 @@ pub struct Config {
 
 struct LockstepTimer(pub Timer);
 
-#[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Tick(pub u64);
 
 #[derive(Default)]
