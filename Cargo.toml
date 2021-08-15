@@ -1,9 +1,9 @@
 [package]
-name = "lockstep"
+name = "bevy_lockstep"
 version = "0.1.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "db55bf550423e741c3362a2ad33f4fea8bcb318c" }
+bevy = { version = "0.5.0", default-features = false }
