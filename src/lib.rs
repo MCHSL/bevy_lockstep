@@ -21,7 +21,7 @@ pub struct Tick(pub u64);
 
 #[derive(Default)]
 pub struct Step<PlayerID: Default, I: Default> {
-    inputs: HashMap<PlayerID, Vec<I>>,
+    pub inputs: HashMap<PlayerID, Vec<I>>,
 }
 
 #[derive(Default)]
