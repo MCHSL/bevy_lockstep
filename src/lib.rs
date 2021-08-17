@@ -40,6 +40,10 @@ impl<PlayerID: Default + Eq + std::hash::Hash, I: Default> InputQueue<PlayerID, 
             .or_default()
             .push(command);
     }
+
+    pub fn get(&self, tick: Tick) -> Option<&Step<PlayerID, I>> {
+        self.0.get(&tick)
+    }
 }
 
 fn can_step<PlayerID: 'static + Send + Sync + Default, I: 'static + Send + Sync + Default>(
