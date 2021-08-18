@@ -8,6 +8,16 @@ pub const LOCKSTEP: &'static str = "lockstep";
 pub const LOCKSTEP_START: &'static str = "lockstep_start";
 pub const LOCKSTEP_END: &'static str = "lockstep_end";
 
+#[macro_export]
+macro_rules! set_types {
+    ($player_id:ty, $player_actions:ty) => {
+        type InputQueue = $crate::InputQueue<$player_id, $player_actions>;
+        type CurrentInputs = $crate::CurrentInputs<$player_id, $player_actions>;
+        type LocalAction = $crate::LocalAction<$player_id, $player_actions>;
+        type RemoteAction = $crate::RemoteAction<$player_id, $player_actions>;
+    };
+}
+
 pub struct Config {
     pub num_players: usize,
     pub ticks_per_second: usize,
@@ -20,18 +30,31 @@ struct LockstepTimer(pub Timer);
 pub struct Tick(pub u64);
 
 #[derive(Default)]
-pub struct Step<PlayerID: Default, I: Default> {
-    pub inputs: HashMap<PlayerID, Vec<I>>,
+pub struct Step<PlayerID: Default, Action: Default> {
+    pub inputs: HashMap<PlayerID, Vec<Action>>,
 }
 
 #[derive(Default)]
-pub struct CurrentInputs<PlayerID: Default, I: Default>(pub HashMap<PlayerID, Vec<I>>);
+pub struct CurrentInputs<PlayerID: Default, Action: Default>(pub HashMap<PlayerID, Vec<Action>>);
 
 #[derive(Default)]
-pub struct InputQueue<PlayerID: Default, I: Default>(HashMap<Tick, Step<PlayerID, I>>);
+pub struct InputQueue<PlayerID: Default, Action: Default>(HashMap<Tick, Step<PlayerID, Action>>);
 
-impl<PlayerID: Default + Eq + std::hash::Hash, I: Default> InputQueue<PlayerID, I> {
-    pub fn insert(&mut self, tick: Tick, player: PlayerID, command: I) {
+#[derive(Default)]
+pub struct ActionAtTick<PlayerID: Default, Action: Default> {
+    pub player: PlayerID,
+    pub action: Action,
+    pub tick: Tick,
+}
+
+#[derive(Default)]
+pub struct LocalAction<PlayerID: Default, Action: Default>(pub ActionAtTick<PlayerID, Action>);
+
+#[derive(Default)]
+pub struct RemoteAction<PlayerID: Default, Action: Default>(pub ActionAtTick<PlayerID, Action>);
+
+impl<PlayerID: Default + Eq + std::hash::Hash, Action: Default> InputQueue<PlayerID, Action> {
+    pub fn insert(&mut self, tick: Tick, player: PlayerID, command: Action) {
         self.0
             .entry(tick)
             .or_default()
@@ -41,14 +64,14 @@ impl<PlayerID: Default + Eq + std::hash::Hash, I: Default> InputQueue<PlayerID, 
             .push(command);
     }
 
-    pub fn get(&self, tick: Tick) -> Option<&Step<PlayerID, I>> {
+    pub fn get(&self, tick: Tick) -> Option<&Step<PlayerID, Action>> {
         self.0.get(&tick)
     }
 }
 
-fn can_step<PlayerID: 'static + Send + Sync + Default, I: 'static + Send + Sync + Default>(
+fn can_step<PlayerID: 'static + Send + Sync + Default, Action: 'static + Send + Sync + Default>(
     current_tick: Res<Tick>,
-    inputs: Res<InputQueue<PlayerID, I>>,
+    inputs: Res<InputQueue<PlayerID, Action>>,
     time: Res<Time>,
     mut timer: ResMut<LockstepTimer>,
     config: Res<Config>,
@@ -75,21 +98,21 @@ fn can_step<PlayerID: 'static + Send + Sync + Default, I: 'static + Send + Sync 
 
 fn prepare_inputs<
     PlayerID: 'static + Send + Sync + Default + Clone,
-    I: 'static + Send + Sync + Default + Clone,
+    Action: 'static + Send + Sync + Default + Clone,
 >(
     current_tick: ResMut<Tick>,
-    inputs: ResMut<InputQueue<PlayerID, I>>,
-    mut current_inputs: ResMut<CurrentInputs<PlayerID, I>>,
+    inputs: ResMut<InputQueue<PlayerID, Action>>,
+    mut current_inputs: ResMut<CurrentInputs<PlayerID, Action>>,
 ) {
     *current_inputs = CurrentInputs(inputs.0.get(&*current_tick).unwrap().inputs.clone());
 }
 
 fn finish_step<
     PlayerID: 'static + Send + Sync + Default + std::fmt::Debug,
-    I: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
+    Action: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
 >(
     mut current_tick: ResMut<Tick>,
-    mut inputs: ResMut<InputQueue<PlayerID, I>>,
+    mut inputs: ResMut<InputQueue<PlayerID, Action>>,
 ) {
     /*println!(
         "Tick {}: {:?}",
@@ -117,6 +140,18 @@ fn insert_timer(mut commands: Commands, config: Res<Config>) {
     )))
 }
 
+fn insert_local_actions<
+    PlayerID: 'static + Send + Sync + Default + Clone + Eq + std::hash::Hash + std::fmt::Debug,
+    Action: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
+>(
+    mut events: EventReader<LocalAction<PlayerID, Action>>,
+    mut inputs: ResMut<InputQueue<PlayerID, Action>>,
+) {
+    for ev in events.iter() {
+        inputs.insert(ev.0.tick, ev.0.player.clone(), ev.0.action.clone());
+    }
+}
+
 impl<
         PlayerID: 'static + Send + Sync + Default + Clone + Eq + std::hash::Hash + std::fmt::Debug,
         PlayerActions: 'static + Send + Sync + Default + Clone + std::fmt::Debug,
@@ -126,7 +161,10 @@ impl<
         app.insert_resource(Tick::default())
             .insert_resource(InputQueue::<PlayerID, PlayerActions>::default())
             .insert_resource(CurrentInputs::<PlayerID, PlayerActions>::default())
+            .add_event::<LocalAction<PlayerID, PlayerActions>>()
+            .add_event::<RemoteAction<PlayerID, PlayerActions>>()
             .add_startup_system(insert_timer.system())
+            .add_system(insert_local_actions::<PlayerID, PlayerActions>.system())
             .add_system_set(
                 SystemSet::new()
                     .with_run_criteria(can_step::<PlayerID, PlayerActions>.system().label(LOCKSTEP))
