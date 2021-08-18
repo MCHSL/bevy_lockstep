@@ -71,6 +71,14 @@ impl<PlayerID: Default + Clone, Action: Default + Clone> Into<RemoteAction<Playe
     for LocalAction<PlayerID, Action>
 {
     fn into(self) -> RemoteAction<PlayerID, Action> {
+        RemoteAction(self.0)
+    }
+}
+
+impl<PlayerID: Default + Clone, Action: Default + Clone> Into<RemoteAction<PlayerID, Action>>
+    for &LocalAction<PlayerID, Action>
+{
+    fn into(self) -> RemoteAction<PlayerID, Action> {
         RemoteAction(self.0.clone())
     }
 }
