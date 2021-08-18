@@ -94,8 +94,8 @@ impl<PlayerID: Default + Eq + std::hash::Hash, Action: Default> InputQueue<Playe
             .push(command);
     }
 
-    pub fn get(&self, tick: Tick) -> Option<&Step<PlayerID, Action>> {
-        self.0.get(&tick)
+    pub fn get(&mut self, tick: Tick) -> &mut Step<PlayerID, Action> {
+        self.0.entry(tick).or_default()
     }
 }
 
