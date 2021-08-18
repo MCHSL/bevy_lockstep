@@ -57,6 +57,16 @@ pub struct RemoteAction<PlayerID: Default + Clone, Action: Default + Clone>(
     pub ActionAtTick<PlayerID, Action>,
 );
 
+impl<PlayerID: Default + Clone, Action: Default + Clone> LocalAction<PlayerID, Action> {
+    pub fn new(tick: Tick, player: PlayerID, action: Action) -> Self {
+        Self(ActionAtTick {
+            player,
+            action,
+            tick,
+        })
+    }
+}
+
 impl<PlayerID: Default + Clone, Action: Default + Clone> Into<RemoteAction<PlayerID, Action>>
     for LocalAction<PlayerID, Action>
 {
