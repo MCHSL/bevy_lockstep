@@ -29,30 +29,30 @@ struct LockstepTimer(pub Timer);
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Tick(pub u64);
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Step<PlayerID: Default, Action: Default> {
     pub inputs: HashMap<PlayerID, Vec<Action>>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CurrentInputs<PlayerID: Default, Action: Default>(pub HashMap<PlayerID, Vec<Action>>);
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct InputQueue<PlayerID: Default, Action: Default>(HashMap<Tick, Step<PlayerID, Action>>);
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug)]
 pub struct ActionAtTick<PlayerID: Default + Clone, Action: Default + Clone> {
     pub player: PlayerID,
     pub action: Action,
     pub tick: Tick,
 }
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug)]
 pub struct LocalAction<PlayerID: Default + Clone, Action: Default + Clone>(
     pub ActionAtTick<PlayerID, Action>,
 );
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug)]
 pub struct RemoteAction<PlayerID: Default + Clone, Action: Default + Clone>(
     pub ActionAtTick<PlayerID, Action>,
 );
