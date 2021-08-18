@@ -40,18 +40,22 @@ pub struct CurrentInputs<PlayerID: Default, Action: Default>(pub HashMap<PlayerI
 #[derive(Default)]
 pub struct InputQueue<PlayerID: Default, Action: Default>(HashMap<Tick, Step<PlayerID, Action>>);
 
-#[derive(Default)]
-pub struct ActionAtTick<PlayerID: Default, Action: Default> {
+#[derive(Default, Clone)]
+pub struct ActionAtTick<PlayerID: Default + Clone, Action: Default + Clone> {
     pub player: PlayerID,
     pub action: Action,
     pub tick: Tick,
 }
 
-#[derive(Default)]
-pub struct LocalAction<PlayerID: Default, Action: Default>(pub ActionAtTick<PlayerID, Action>);
+#[derive(Default, Clone)]
+pub struct LocalAction<PlayerID: Default + Clone, Action: Default + Clone>(
+    pub ActionAtTick<PlayerID, Action>,
+);
 
-#[derive(Default)]
-pub struct RemoteAction<PlayerID: Default, Action: Default>(pub ActionAtTick<PlayerID, Action>);
+#[derive(Default, Clone)]
+pub struct RemoteAction<PlayerID: Default + Clone, Action: Default + Clone>(
+    pub ActionAtTick<PlayerID, Action>,
+);
 
 impl<PlayerID: Default + Eq + std::hash::Hash, Action: Default> InputQueue<PlayerID, Action> {
     pub fn insert(&mut self, tick: Tick, player: PlayerID, command: Action) {
