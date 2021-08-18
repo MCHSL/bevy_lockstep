@@ -57,6 +57,14 @@ pub struct RemoteAction<PlayerID: Default + Clone, Action: Default + Clone>(
     pub ActionAtTick<PlayerID, Action>,
 );
 
+impl<PlayerID: Default + Clone, Action: Default + Clone> Into<RemoteAction<PlayerID, Action>>
+    for LocalAction<PlayerID, Action>
+{
+    fn into(self) -> RemoteAction<PlayerID, Action> {
+        RemoteAction(self.0.clone())
+    }
+}
+
 impl<PlayerID: Default + Eq + std::hash::Hash, Action: Default> InputQueue<PlayerID, Action> {
     pub fn insert(&mut self, tick: Tick, player: PlayerID, command: Action) {
         self.0
