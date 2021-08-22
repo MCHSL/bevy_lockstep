@@ -144,11 +144,6 @@ fn finish_step<
     mut current_tick: ResMut<Tick>,
     mut inputs: ResMut<InputQueue<PlayerID, Action>>,
 ) {
-    /*println!(
-        "Tick {}: {:?}",
-        current_tick.0,
-        inputs.0.get(&*current_tick).unwrap().inputs
-    );*/
     inputs.0.remove(&*current_tick);
     current_tick.0 += 1;
 }
