@@ -189,18 +189,18 @@ impl<
             .add_event::<LocalAction<PlayerID, PlayerActions>>()
             .add_event::<RemoteAction<PlayerID, PlayerActions>>()
             .add_startup_system(insert_timer.system())
-            .add_system(insert_local_actions::<PlayerID, PlayerActions>.exclusive_system())
+            .add_system(insert_local_actions::<PlayerID, PlayerActions>.system().before(LOCKSTEP_START))
             .add_system_set(
                 SystemSet::new()
                     .with_run_criteria(can_step::<PlayerID, PlayerActions>.system().label(LOCKSTEP))
                     .with_system(
                         prepare_inputs::<PlayerID, PlayerActions>
-                            .exclusive_system()
+                            .system()
                             .label(LOCKSTEP_START),
                     )
                     .with_system(
                         finish_step::<PlayerID, PlayerActions>
-                            .exclusive_system()
+                            .system()
                             .label(LOCKSTEP_END),
                     ),
             );
